@@ -3,7 +3,7 @@
 # pgModeler 1.2.1 - Build from source for Linux Mint 22.1 / Ubuntu 24.04
 # =============================================================================
 # Tested on: Linux Mint 22.1 Xia (Ubuntu 24.04 Noble base)
-# PostgreSQL compatibility: up to PG 18 (with patch applied)
+# PostgreSQL compatibility: up to PG 18 (patch applied automatically)
 # License: This script is MIT. pgModeler itself is GPLv3.
 # =============================================================================
 
@@ -12,7 +12,6 @@ set -euo pipefail
 PGMODELER_VERSION="v1.2.1"
 PGMODELER_REPO="https://github.com/pgmodeler/pgmodeler.git"
 BUILD_DIR="/tmp/pgmodeler"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== pgModeler ${PGMODELER_VERSION} - Build from source ==="
 echo ""
@@ -44,15 +43,45 @@ cd "${BUILD_DIR}"
 git checkout "${PGMODELER_VERSION}"
 
 # --- 4. Apply PostgreSQL 18 compatibility patch ---
+# pgModeler 1.2.1 only supports up to PG 17. When it connects to PG 18,
+# the version parser falls back to PG 10.0 (MinimumVersion), which causes
+# catalog queries to use the removed column `pg_proc.proisagg` (removed in PG 11).
+# This patch adds PgSqlVersion180 and sets it as the new DefaultVersion.
 echo "[4/6] Applying PostgreSQL 18 compatibility patch..."
-if [ -f "${SCRIPT_DIR}/patches/pg18-support.patch" ]; then
-  git apply "${SCRIPT_DIR}/patches/pg18-support.patch"
-  echo "       Patch applied successfully."
-else
-  echo "       WARNING: Patch file not found at ${SCRIPT_DIR}/patches/pg18-support.patch"
-  echo "       pgModeler will NOT work with PostgreSQL 18 without this patch."
-  echo "       Continuing build anyway..."
-fi
+git apply - <<'PATCH'
+diff --git a/libs/libutils/src/pgsqlversions.cpp b/libs/libutils/src/pgsqlversions.cpp
+index 726e713c8..ccf15d6e5 100644
+--- a/libs/libutils/src/pgsqlversions.cpp
++++ b/libs/libutils/src/pgsqlversions.cpp
+@@ -29,12 +29,13 @@ namespace PgSqlVersions {
+ 	PgSqlVersion150("15.0"),
+ 	PgSqlVersion160("16.0"),
+ 	PgSqlVersion170("17.0"),
+-	DefaulVersion = PgSqlVersion170,
++	PgSqlVersion180("18.0"),
++	DefaulVersion = PgSqlVersion180,
+ 	MinimumVersion = PgSqlVersion100;
+
+ 	const QStringList
+ 	AllVersions = {
+-		PgSqlVersion170, PgSqlVersion160,
++		PgSqlVersion180, PgSqlVersion170, PgSqlVersion160,
+ 		PgSqlVersion150, PgSqlVersion140,
+ 		PgSqlVersion130, PgSqlVersion120,
+ 		PgSqlVersion110, PgSqlVersion100
+diff --git a/libs/libutils/src/pgsqlversions.h b/libs/libutils/src/pgsqlversions.h
+index 58101edb8..0737684dd 100644
+--- a/libs/libutils/src/pgsqlversions.h
++++ b/libs/libutils/src/pgsqlversions.h
+@@ -39,6 +39,7 @@ namespace PgSqlVersions {
+ 	PgSqlVersion150,
+ 	PgSqlVersion160,
+ 	PgSqlVersion170,
++	PgSqlVersion180,
+ 	MinimumVersion,
+ 	DefaulVersion;
+PATCH
+echo "       Patch applied successfully."
 
 # --- 5. Build ---
 echo "[5/6] Building (this may take a few minutes)..."
