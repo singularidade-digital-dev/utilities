@@ -7,6 +7,7 @@ Coleção de scripts, patches e ferramentas de apoio ao ambiente de desenvolvime
 | Diretório | Descrição |
 |-----------|-----------|
 | [`pgmodeler/`](pgmodeler/) | Build from source do pgModeler 1.2.1 com patch para PostgreSQL 18 |
+| [`terraform/ecr/`](terraform/ecr/) | Lifecycle policy de ECR (`lifecycle-policy.json`): mantém as 20 imagens `sha-*` mais recentes e 5 `develop`, expira imagens sem tag após 1 dia |
 
 ## Sobre
 
